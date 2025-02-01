@@ -119,7 +119,7 @@ INSERT INTO sms_teacher (teacher, subject_id) VALUES
 ('sfsafas bbbb nn', 1);
 
 INSERT INTO sms_user (first_name, last_name, email, password, gender, mobile, designation, image, type, status, authtoken) VALUES
-('web', 'damn', 'admin@webdamn.com', '123', 'male', '123456789', 'Web developer', '', 'administrator', 'active', '');
+('nazar', 'mohammed', 'nazarchess14@gmail.com', 'nazar123', 'male', '7483282896', 'Web developer', '', 'administrator', 'active', '');
 
 SELECT * FROM sms_students;
 SELECT * FROM sms_attendance;
