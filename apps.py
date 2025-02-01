@@ -3,8 +3,14 @@ import psycopg2
 from psycopg2 import sql
 from datetime import date
 from psycopg2 import extras
+import psycopg2.extras
+import logging
 
 app = Flask(__name__)
+
+# Configure logging
+# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 
 app.secret_key = 'abcd21234455'  
 app.config['PG_HOST'] = 'localhost'
@@ -62,17 +68,91 @@ def dashboard():
 
 ########################### Teacher Section ###########################
 
+# @app.route("/teacher", methods=['GET', 'POST'])
+# def teacher():
+#     if 'loggedin' in session:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id')
+#         teachers = cursor.fetchall()
+
+#         cursor.execute('SELECT * FROM sms_subjects')
+#         subjects = cursor.fetchall()
+
+#         return render_template("teacher.html", teachers=teachers, subjects=subjects)
+#     return redirect(url_for('login'))
+
+# @app.route("/edit_teacher", methods=['GET'])
+# def edit_teacher():
+#     if 'loggedin' in session:
+#         teacher_id = request.args.get('teacher_id')
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id WHERE t.teacher_id = %s', (teacher_id,))
+#         teacher = cursor.fetchone()
+
+#         cursor.execute('SELECT * FROM sms_subjects')
+#         subjects = cursor.fetchall()
+
+#         return render_template("edit_teacher.html", teacher=teacher, subjects=subjects)
+#     return redirect(url_for('login'))
+
+# @app.route("/save_teacher", methods=['POST'])
+# def save_teacher():
+#     if 'loggedin' in session:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         if 'techer_name' in request.form and 'specialization' in request.form:
+#             techer_name = request.form['techer_name']
+#             specialization = request.form['specialization']
+#             action = request.form['action']
+
+#             if action == 'updateTeacher':
+#                 teacherid = request.form['teacherid']
+#                 cursor.execute('UPDATE sms_teacher SET teacher = %s, subject_id = %s WHERE teacher_id = %s', (techer_name, specialization, teacherid))
+#                 conn.commit()
+#             else:
+#                 cursor.execute('INSERT INTO sms_teacher (teacher, subject_id) VALUES (%s, %s)', (techer_name, specialization))
+#                 conn.commit()
+#             return redirect(url_for('teacher'))
+#         else:
+#             return redirect(url_for('teacher'))
+#     return redirect(url_for('login'))
+
+# @app.route("/delete_teacher", methods=['GET'])
+# def delete_teacher():
+#     if 'loggedin' in session:
+#         teacher_id = request.args.get('teacher_id')
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute('DELETE FROM sms_teacher WHERE teacher_id = %s', (teacher_id,))
+#         conn.commit()
+#         return redirect(url_for('teacher'))
+#     return redirect(url_for('login'))
+
+
+def get_db_connection():
+    conn = psycopg2.connect("dbname=python_sms user=postgres password=Nazar123 host=localhost")
+    return conn
+
 @app.route("/teacher", methods=['GET', 'POST'])
 def teacher():
     if 'loggedin' in session:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id')
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cursor.execute('''
+            SELECT t.teacher_id, t.teacher, s.subject 
+            FROM sms_teacher t
+            LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id
+        ''')
         teachers = cursor.fetchall()
 
         cursor.execute('SELECT * FROM sms_subjects')
         subjects = cursor.fetchall()
 
+        cursor.close()
+        conn.close()
         return render_template("teacher.html", teachers=teachers, subjects=subjects)
     return redirect(url_for('login'))
 
@@ -80,15 +160,28 @@ def teacher():
 def edit_teacher():
     if 'loggedin' in session:
         teacher_id = request.args.get('teacher_id')
+        if not teacher_id or not teacher_id.isdigit():
+            return redirect(url_for('teacher'))
+
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id WHERE t.teacher_id = %s', (teacher_id,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cursor.execute('''
+            SELECT teacher_id, teacher, subject_id 
+            FROM sms_teacher 
+            WHERE teacher_id = %s
+        ''', (int(teacher_id),))
         teacher = cursor.fetchone()
 
         cursor.execute('SELECT * FROM sms_subjects')
         subjects = cursor.fetchall()
 
-        return render_template("edit_teacher.html", teacher=teacher, subjects=subjects)
+        cursor.close()
+        conn.close()
+
+        if teacher:
+            return render_template("edit_teacher.html", teacher=teacher, subjects=subjects)
+        return redirect(url_for('teacher'))
     return redirect(url_for('login'))
 
 @app.route("/save_teacher", methods=['POST'])
@@ -96,31 +189,47 @@ def save_teacher():
     if 'loggedin' in session:
         conn = get_db_connection()
         cursor = conn.cursor()
-        if 'techer_name' in request.form and 'specialization' in request.form:
-            techer_name = request.form['techer_name']
+
+        try:
+            teacher_name = request.form['teacher_name']
             specialization = request.form['specialization']
-            action = request.form['action']
+            action = request.form.get('action', '')
 
             if action == 'updateTeacher':
-                teacherid = request.form['teacherid']
-                cursor.execute('UPDATE sms_teacher SET teacher = %s, subject_id = %s WHERE teacher_id = %s', (techer_name, specialization, teacherid))
-                conn.commit()
+                teacher_id = request.form['teacherid']
+                cursor.execute('''
+                    UPDATE sms_teacher 
+                    SET teacher = %s, subject_id = %s 
+                    WHERE teacher_id = %s
+                ''', (teacher_name, specialization or None, teacher_id))
             else:
-                cursor.execute('INSERT INTO sms_teacher (teacher, subject_id) VALUES (%s, %s)', (techer_name, specialization))
-                conn.commit()
-            return redirect(url_for('teacher'))
-        else:
-            return redirect(url_for('teacher'))
+                cursor.execute('''
+                    INSERT INTO sms_teacher (teacher, subject_id)
+                    VALUES (%s, %s)
+                ''', (teacher_name, specialization or None))
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Database error: {str(e)}")
+        finally:
+            cursor.close()
+            conn.close()
+
+        return redirect(url_for('teacher'))
     return redirect(url_for('login'))
 
 @app.route("/delete_teacher", methods=['GET'])
 def delete_teacher():
     if 'loggedin' in session:
         teacher_id = request.args.get('teacher_id')
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM sms_teacher WHERE teacher_id = %s', (teacher_id,))
-        conn.commit()
+        if teacher_id and teacher_id.isdigit():
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM sms_teacher WHERE teacher_id = %s', (teacher_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
         return redirect(url_for('teacher'))
     return redirect(url_for('login'))
 
