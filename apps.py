@@ -235,27 +235,21 @@ def delete_teacher():
 
 ########################### SUBJECT ##################################
     
+from psycopg2 import extras  # Add this import
+
 @app.route("/subject", methods=['GET', 'POST'])
 def subject():
     if 'loggedin' in session:
         conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Execute query to get all subjects from the database
+        cursor = conn.cursor(cursor_factory=extras.DictCursor)  # Use DictCursor
         cursor.execute('SELECT * FROM sms_subjects')
-        
-        # Fetch all rows from the executed query
         subjects = cursor.fetchall()
-        
-        # Close the connection
         cursor.close()
         conn.close()
-
-        # Render the subjects page with the retrieved subjects
+        print("Fetched Data:", subjects)  # Verify data in the terminal
         return render_template("subject.html", subjects=subjects)
-    
-    # If the user is not logged in, redirect to login page
     return redirect(url_for('login'))
+    
     
 @app.route("/save_subject", methods=['GET', 'POST'])
 def save_subject():
@@ -290,22 +284,37 @@ def save_subject():
         return redirect(url_for('subject'))        
     return redirect(url_for('login'))
 
+from psycopg2.extras import DictCursor  # Add this import
+
 @app.route("/edit_subject", methods=['GET'])
 def edit_subject():
     if 'loggedin' in session:
-        subject_id = request.args.get('subject_id') 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        subject_id = request.args.get('subject_id')
+        if not subject_id:
+            return "Subject ID is missing.", 400  # Handle missing ID
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=DictCursor)  # Use DictCursor
+            cursor.execute('''
+                SELECT subject_id, subject, type, code 
+                FROM sms_subjects 
+                WHERE subject_id = %s
+            ''', (subject_id,))
+            subject = cursor.fetchone()  # Fetch SINGLE row
+            cursor.close()
+            conn.close()
 
-        cursor.execute('SELECT subject_id, subject, type, code FROM sms_subjects WHERE subject_id = %s', (subject_id,))
-        subjects = cursor.fetchall()
+            if not subject:
+                return "Subject not found.", 404  # Handle missing data
 
-        # Close the cursor and connection after fetching the data
-        cursor.close()
-        conn.close()
-
-        return render_template("edit_subject.html", subjects=subjects)
-    return redirect(url_for('login'))   
+            return render_template("edit_subject.html", subject=subject)
+            
+        except Exception as e:
+            print("Database Error:", e)  # Log errors
+            return "An error occurred.", 500
+            
+    return redirect(url_for('login'))
     
 @app.route("/delete_subject", methods=['GET'])
 def delete_subject():
