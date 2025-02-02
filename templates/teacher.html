@@ -45,16 +45,17 @@
 			<form method="post" id="teacherForm" action="{{ url_for('save_teacher')}}">
 				<div class="modal-content">
 					<div class="modal-header">						
-						<h4 class="modal-title"><i class="fa fa-plus"></i> Edit teacher</h4>
+						<h4 class="modal-title"><i class="fa fa-plus"></i> Edit Teacher</h4>
 					</div>
 					<div class="modal-body">					
 						<div class="form-group">							
-							<label for="Techer" class="control-label">Techer</label>						
-							<input type="text" name="techer_name" id="techer_name" autocomplete="off" class="form-control" placeholder="techer name"/>										
+							<!-- Fixed typo: "techer" → "teacher" -->
+							<label for="teacher" class="control-label">Teacher</label>						
+							<input type="text" name="teacher_name" id="teacher_name" autocomplete="off" class="form-control" placeholder="Teacher name" required>										
 						</div>						
 						<div class="form-group">
-							<label for="Specialization" class="control-label">Specialization</label>				
-							<select class="form-control" id="specialization" name="specialization"/>
+							<label for="specialization" class="control-label">Specialization</label>				
+							<select class="form-control" id="specialization" name="specialization">
 								<option value="">--Select--</option>
 								{% for subject in subjects %}
 									<option value="{{subject.subject_id}}">{{subject.subject}}</option>		

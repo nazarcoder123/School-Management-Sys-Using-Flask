@@ -68,69 +68,6 @@ def dashboard():
 
 ########################### Teacher Section ###########################
 
-# @app.route("/teacher", methods=['GET', 'POST'])
-# def teacher():
-#     if 'loggedin' in session:
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id')
-#         teachers = cursor.fetchall()
-
-#         cursor.execute('SELECT * FROM sms_subjects')
-#         subjects = cursor.fetchall()
-
-#         return render_template("teacher.html", teachers=teachers, subjects=subjects)
-#     return redirect(url_for('login'))
-
-# @app.route("/edit_teacher", methods=['GET'])
-# def edit_teacher():
-#     if 'loggedin' in session:
-#         teacher_id = request.args.get('teacher_id')
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         cursor.execute('SELECT t.teacher_id, t.teacher, s.subject FROM sms_teacher t LEFT JOIN sms_subjects s ON s.subject_id = t.subject_id WHERE t.teacher_id = %s', (teacher_id,))
-#         teacher = cursor.fetchone()
-
-#         cursor.execute('SELECT * FROM sms_subjects')
-#         subjects = cursor.fetchall()
-
-#         return render_template("edit_teacher.html", teacher=teacher, subjects=subjects)
-#     return redirect(url_for('login'))
-
-# @app.route("/save_teacher", methods=['POST'])
-# def save_teacher():
-#     if 'loggedin' in session:
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         if 'techer_name' in request.form and 'specialization' in request.form:
-#             techer_name = request.form['techer_name']
-#             specialization = request.form['specialization']
-#             action = request.form['action']
-
-#             if action == 'updateTeacher':
-#                 teacherid = request.form['teacherid']
-#                 cursor.execute('UPDATE sms_teacher SET teacher = %s, subject_id = %s WHERE teacher_id = %s', (techer_name, specialization, teacherid))
-#                 conn.commit()
-#             else:
-#                 cursor.execute('INSERT INTO sms_teacher (teacher, subject_id) VALUES (%s, %s)', (techer_name, specialization))
-#                 conn.commit()
-#             return redirect(url_for('teacher'))
-#         else:
-#             return redirect(url_for('teacher'))
-#     return redirect(url_for('login'))
-
-# @app.route("/delete_teacher", methods=['GET'])
-# def delete_teacher():
-#     if 'loggedin' in session:
-#         teacher_id = request.args.get('teacher_id')
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         cursor.execute('DELETE FROM sms_teacher WHERE teacher_id = %s', (teacher_id,))
-#         conn.commit()
-#         return redirect(url_for('teacher'))
-#     return redirect(url_for('login'))
-
-
 def get_db_connection():
     conn = psycopg2.connect("dbname=python_sms user=postgres password=Nazar123 host=localhost")
     return conn
@@ -184,40 +121,84 @@ def edit_teacher():
         return redirect(url_for('teacher'))
     return redirect(url_for('login'))
 
+# @app.route("/save_teacher", methods=['POST'])
+# def save_teacher():
+#     if 'loggedin' in session:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+
+#         try:
+#             teacher_name = request.form['teacher_name']
+#             specialization = request.form['specialization']
+#             action = request.form.get('action', '')
+
+#             if action == 'updateTeacher':
+#                 teacher_id = request.form['teacherid']
+#                 cursor.execute('''
+#                     UPDATE sms_teacher 
+#                     SET teacher = %s, subject_id = %s 
+#                     WHERE teacher_id = %s
+#                 ''', (teacher_name, specialization or None, teacher_id))
+#             else:
+#                 cursor.execute('''
+#                     INSERT INTO sms_teacher (teacher, subject_id)
+#                     VALUES (%s, %s)
+#                 ''', (teacher_name, specialization or None))
+
+#             conn.commit()
+#         except Exception as e:
+#             conn.rollback()
+#             logging.error(f"Database error: {str(e)}")
+#         finally:
+#             cursor.close()
+#             conn.close()
+
+#         return redirect(url_for('teacher'))
+#     return redirect(url_for('login'))
+
+
 @app.route("/save_teacher", methods=['POST'])
 def save_teacher():
     if 'loggedin' in session:
         conn = get_db_connection()
         cursor = conn.cursor()
-
         try:
-            teacher_name = request.form['teacher_name']
-            specialization = request.form['specialization']
+            # Safely get and validate teacher_name
+            teacher_name = request.form.get('teacher_name')
+            if not teacher_name:
+                return "Teacher name is required.", 400  # Return error if empty
+
+            specialization = request.form.get('specialization')
             action = request.form.get('action', '')
 
+            # Convert specialization to integer or None
+            specialization = int(specialization) if specialization else None
+
             if action == 'updateTeacher':
-                teacher_id = request.form['teacherid']
+                teacher_id = request.form.get('teacherid')
                 cursor.execute('''
                     UPDATE sms_teacher 
                     SET teacher = %s, subject_id = %s 
                     WHERE teacher_id = %s
-                ''', (teacher_name, specialization or None, teacher_id))
+                ''', (teacher_name, specialization, teacher_id))
             else:
+                # Insert new teacher
                 cursor.execute('''
                     INSERT INTO sms_teacher (teacher, subject_id)
                     VALUES (%s, %s)
-                ''', (teacher_name, specialization or None))
+                ''', (teacher_name, specialization))
 
             conn.commit()
         except Exception as e:
             conn.rollback()
-            logging.error(f"Database error: {str(e)}")
+            logging.error(f"Database error: {str(e)}", exc_info=True)
+            return f"Error: {str(e)}", 500
         finally:
             cursor.close()
             conn.close()
-
         return redirect(url_for('teacher'))
     return redirect(url_for('login'))
+
 
 @app.route("/delete_teacher", methods=['GET'])
 def delete_teacher():
