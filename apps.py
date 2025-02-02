@@ -5,11 +5,11 @@ from datetime import date
 from psycopg2 import extras
 import psycopg2.extras
 import logging
+from flask import flash
 
 app = Flask(__name__)
 
 # Configure logging
-# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.basicConfig(level=logging.INFO)
 
 app.secret_key = 'abcd21234455'  
@@ -286,12 +286,7 @@ def classes():
     if 'loggedin' in session:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-        # Get the classes, sections, and teachers using JOINs
-        # cursor.execute('''SELECT c.id, c.name, s.section, t.teacher 
-        #                    FROM sms_classes c 
-        #                    LEFT JOIN sms_section s ON s.section_id = c.section 
-        #                    LEFT JOIN sms_teacher t ON t.teacher_id = c.teacher_id''')        
+      
         
         cursor.execute('''
                 SELECT c.id, c.name, s.section, t.teacher 
@@ -526,13 +521,13 @@ def edit_student():
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # cursor = conn.cursor(dictionary=True)
         
         cursor.execute('SELECT s.id, s.admission_no, s.roll_no, s.name, s.photo, c.name AS class, sec.section '
                        'FROM sms_students s '
                        'LEFT JOIN sms_section sec ON sec.section_id = s.section '
                        'LEFT JOIN sms_classes c ON c.id = s.class '
-                       'WHERE s.id = %s', (student_id,))
+                       'WHERE s.id = %s', (student_id,))    
+        
         students = cursor.fetchall()
         
         cursor.execute('SELECT * FROM sms_classes')
@@ -548,36 +543,84 @@ def edit_student():
     
     return redirect(url_for('login'))
 
-@app.route("/save_student", methods =['GET', 'POST'])
+
+@app.route("/save_student", methods=['GET', 'POST'])
 def save_student():
     if 'loggedin' in session:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # cursor = conn.cursor()
-        
-        if request.method == 'POST' and 'section_name' in request.form:
-            section_name = request.form['section_name']
-            action = request.form['action']
-            
-            if action == 'updateStudent':
-                section_id = request.form['sectionid']
-                cursor.execute('UPDATE sms_section SET section = %s WHERE section_id = %s', (section_name, section_id))
+        if request.method == 'POST':
+            try:
+                # Extract form data
+                student_id = request.form.get('studentid')
+                register_no = request.form.get('registerNo')[:40]  # Truncate to 40 chars
+                roll_no = request.form.get('rollNo')
+                year = request.form.get('year')
+                admission_date = request.form.get('admission_date')
+                class_id = request.form.get('classid')
+                section_id = request.form.get('sectionid')
+                sname = request.form.get('sname')[:40]  # Truncate to 40 chars
+                gender = request.form.get('gender')
+                dob = request.form.get('dob')
+                email = request.form.get('email')[:255]  # Truncate to 255 chars
+                mobile = request.form.get('mobile')
+                address = request.form.get('address')[:255]  # Truncate to 255 chars
+                fname = request.form.get('fname')[:40]
+                mname = request.form.get('mname')[:40]
+
+                # Handle photo upload
+                photo = request.files.get('photo')
+                photo_filename = photo.filename if photo else None
+                if photo_filename and len(photo_filename) > 40:
+                    photo_filename = photo_filename[:40]  # Truncate filename
+
+                conn = get_db_connection()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+                # Update query
+                update_query = """
+                    UPDATE sms_students 
+                    SET admission_no = %s,
+                        roll_no = %s,
+                        name = %s,
+                        class = %s,
+                        section = %s,
+                        photo = %s,
+                        gender = %s,
+                        dob = %s,
+                        email = %s,
+                        mobile = %s,
+                        student_address = %s,
+                        admission_date = %s
+                    WHERE id = %s
+                """
+                cursor.execute(update_query, (
+                    register_no, roll_no, sname, class_id, section_id,
+                    photo_filename, gender, dob, email, mobile,
+                    address, admission_date, student_id
+                ))
                 conn.commit()
-            else:
-                cursor.execute('INSERT INTO sms_section (section) VALUES (%s)', (section_name,))
-                conn.commit()
-            
-            cursor.close()
-            conn.close()
-            
-            return redirect(url_for('sections'))
-        
-        elif request.method == 'POST':
-            msg = 'Please fill out the form field !'
-        
-        return redirect(url_for('sections'))
-    
+                flash('Student updated successfully!', 'success')
+
+            except Exception as e:
+                conn.rollback()
+                flash(f'Error updating student: {str(e)}', 'danger')
+                return redirect(url_for('edit_student', student_id=student_id))
+
+            finally:
+                cursor.close()
+                conn.close()
+
+            # return redirect(url_for('students'))
+            return redirect(url_for('student'))
+
+        else:
+            flash('Invalid request method!', 'danger')
+            # return redirect(url_for('students'))
+            return redirect(url_for('student'))
+
     return redirect(url_for('login'))
+
+
+
 
 @app.route("/delete_student", methods =['GET'])
 def delete_student():
@@ -586,7 +629,6 @@ def delete_student():
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # cursor = conn.cursor()
         
         cursor.execute('DELETE FROM sms_students WHERE id = %s', (student_id,))
         conn.commit()
