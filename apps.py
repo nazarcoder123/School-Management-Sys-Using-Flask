@@ -121,42 +121,6 @@ def edit_teacher():
         return redirect(url_for('teacher'))
     return redirect(url_for('login'))
 
-# @app.route("/save_teacher", methods=['POST'])
-# def save_teacher():
-#     if 'loggedin' in session:
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-
-#         try:
-#             teacher_name = request.form['teacher_name']
-#             specialization = request.form['specialization']
-#             action = request.form.get('action', '')
-
-#             if action == 'updateTeacher':
-#                 teacher_id = request.form['teacherid']
-#                 cursor.execute('''
-#                     UPDATE sms_teacher 
-#                     SET teacher = %s, subject_id = %s 
-#                     WHERE teacher_id = %s
-#                 ''', (teacher_name, specialization or None, teacher_id))
-#             else:
-#                 cursor.execute('''
-#                     INSERT INTO sms_teacher (teacher, subject_id)
-#                     VALUES (%s, %s)
-#                 ''', (teacher_name, specialization or None))
-
-#             conn.commit()
-#         except Exception as e:
-#             conn.rollback()
-#             logging.error(f"Database error: {str(e)}")
-#         finally:
-#             cursor.close()
-#             conn.close()
-
-#         return redirect(url_for('teacher'))
-#     return redirect(url_for('login'))
-
-
 @app.route("/save_teacher", methods=['POST'])
 def save_teacher():
     if 'loggedin' in session:
