@@ -514,22 +514,67 @@ def student():
     
     return redirect(url_for('login'))
 
-@app.route("/edit_student", methods =['GET'])
+# @app.route("/edit_student", methods =['GET'])
+# def edit_student():
+#     if 'loggedin' in session:
+#         student_id = request.args.get('student_id')
+        
+#         conn = get_db_connection()
+#         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+#         cursor.execute('SELECT s.id, s.admission_no, s.roll_no, s.name, s.photo, c.name AS class, sec.section '
+#                        'FROM sms_students s '
+#                        'LEFT JOIN sms_section sec ON sec.section_id = s.section '
+#                        'LEFT JOIN sms_classes c ON c.id = s.class '
+#                        'WHERE s.id = %s', (student_id,))    
+        
+#         students = cursor.fetchall()
+        
+#         cursor.execute('SELECT * FROM sms_classes')
+#         classes = cursor.fetchall()
+        
+#         cursor.execute('SELECT * FROM sms_section')
+#         sections = cursor.fetchall()
+        
+#         cursor.close()
+#         conn.close()
+        
+#         return render_template("edit_student.html", students=students, classes=classes, sections=sections)
+    
+#     return redirect(url_for('login'))
+
+
+
+
+@app.route("/edit_student", methods=['GET'])
 def edit_student():
     if 'loggedin' in session:
         student_id = request.args.get('student_id')
-        
+
+        if not student_id or not student_id.isdigit():
+            flash('Invalid or missing student ID', 'danger')
+            return redirect(url_for('student'))  
+
+        student_id = int(student_id)
+
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cursor.execute('''
+            SELECT s.*, c.name AS class_name 
+            FROM sms_students s 
+            LEFT JOIN sms_section sec ON sec.section_id = s.section 
+            LEFT JOIN sms_classes c ON c.id = s.class 
+            WHERE s.id = %s
+        ''', (student_id,))  
         
-        cursor.execute('SELECT s.id, s.admission_no, s.roll_no, s.name, s.photo, c.name AS class, sec.section '
-                       'FROM sms_students s '
-                       'LEFT JOIN sms_section sec ON sec.section_id = s.section '
-                       'LEFT JOIN sms_classes c ON c.id = s.class '
-                       'WHERE s.id = %s', (student_id,))    
+        # Change this to fetchone() since we're getting a single student
+        student = cursor.fetchone()
         
-        students = cursor.fetchall()
-        
+        if not student:
+            flash('Student not found', 'danger')
+            return redirect(url_for('student'))
+
         cursor.execute('SELECT * FROM sms_classes')
         classes = cursor.fetchall()
         
@@ -539,7 +584,8 @@ def edit_student():
         cursor.close()
         conn.close()
         
-        return render_template("edit_student.html", students=students, classes=classes, sections=sections)
+        # Pass single student object instead of list
+        return render_template("edit_student.html", student=student, classes=classes, sections=sections)
     
     return redirect(url_for('login'))
 
@@ -551,18 +597,18 @@ def save_student():
             try:
                 # Extract form data
                 student_id = request.form.get('studentid')
-                register_no = request.form.get('registerNo')[:40]  # Truncate to 40 chars
+                register_no = request.form.get('registerNo')[:40]  
                 roll_no = request.form.get('rollNo')
                 year = request.form.get('year')
                 admission_date = request.form.get('admission_date')
                 class_id = request.form.get('classid')
                 section_id = request.form.get('sectionid')
-                sname = request.form.get('sname')[:40]  # Truncate to 40 chars
+                sname = request.form.get('sname')[:40]  
                 gender = request.form.get('gender')
                 dob = request.form.get('dob')
-                email = request.form.get('email')[:255]  # Truncate to 255 chars
+                email = request.form.get('email')[:255]  
                 mobile = request.form.get('mobile')
-                address = request.form.get('address')[:255]  # Truncate to 255 chars
+                address = request.form.get('address')[:255]  
                 fname = request.form.get('fname')[:40]
                 mname = request.form.get('mname')[:40]
 
@@ -570,7 +616,7 @@ def save_student():
                 photo = request.files.get('photo')
                 photo_filename = photo.filename if photo else None
                 if photo_filename and len(photo_filename) > 40:
-                    photo_filename = photo_filename[:40]  # Truncate filename
+                    photo_filename = photo_filename[:40]  
 
                 conn = get_db_connection()
                 cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -609,16 +655,13 @@ def save_student():
                 cursor.close()
                 conn.close()
 
-            # return redirect(url_for('students'))
             return redirect(url_for('student'))
 
         else:
             flash('Invalid request method!', 'danger')
-            # return redirect(url_for('students'))
             return redirect(url_for('student'))
 
     return redirect(url_for('login'))
-
 
 
 
